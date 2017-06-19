@@ -1,0 +1,3 @@
+[submodule "genesis/lib/stxxl/stxxl"]
+	path = genesis/lib/stxxl/stxxl
+	url = https://github.com/stxxl/stxxl.git
