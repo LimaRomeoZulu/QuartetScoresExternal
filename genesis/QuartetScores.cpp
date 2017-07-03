@@ -36,7 +36,6 @@ int main(int argc, char* argv[]) {
 
 	bool verbose = false;
 	bool savemem = false;
-	bool useStxxl = false;
 	std::string pathToReferenceTree;
 	std::string pathToEvaluationTrees;
 	std::string outputFilePath;
@@ -50,14 +49,12 @@ int main(int argc, char* argv[]) {
 		TCLAP::ValueArg<size_t> threadsArg("t", "threads", "Maximum number of threads to use", false, 0, "uint");
 		TCLAP::SwitchArg verboseArg("v", "verbose", "Verbose mode", false);
 		TCLAP::SwitchArg savememArg("s", "savemem", "Consume less memory, but with the cost of increased runtime", false);
-		TCLAP::SwitchArg stxxlArg("stxxl", "stxxl", "Use External Memory", false);
 		cmd.add(refArg);
 		cmd.add(evalArg);
 		cmd.add(outputArg);
 		cmd.add(threadsArg);
 		cmd.add(verboseArg);
 		cmd.add(savememArg);
-		cmd.add(stxxlArg);
 		cmd.parse(argc, argv);
 
 		pathToReferenceTree = refArg.getValue();
@@ -66,7 +63,7 @@ int main(int argc, char* argv[]) {
 		nThreads = threadsArg.getValue();
 		verbose = verboseArg.getValue();
 		savemem = savememArg.getValue();
-		useStxxl = stxxlArg.getValue();
+
 	} catch (TCLAP::ArgException &e) // catch any exceptions
 	{
 		std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl;
@@ -79,9 +76,9 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	if (nThreads > 0) {
-		omp_set_num_threads(nThreads);
-	}
+	// if (nThreads > 0) {
+	// 	omp_set_num_threads(nThreads);
+	// }
 
 	//read trees
 	DefaultTreeNewickReader reader;
@@ -103,22 +100,22 @@ int main(int argc, char* argv[]) {
 	std::vector<double> eqpic;
 	size_t m = countEvalTrees(pathToEvaluationTrees);
 	if (m < (size_t(1) << 8)) {
-		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, useStxxl);
+		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else if (m < (size_t(1) << 16)) {
-		QuartetScoreComputer<uint16_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, useStxxl);
+		QuartetScoreComputer<uint16_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else if (m < (size_t(1) << 32)) {
-		QuartetScoreComputer<uint32_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, useStxxl);
+		QuartetScoreComputer<uint32_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else {
-		QuartetScoreComputer<uint64_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, useStxxl);
+		QuartetScoreComputer<uint64_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();

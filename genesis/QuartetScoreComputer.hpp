@@ -41,7 +41,7 @@ template<typename CINT>
 class QuartetScoreComputer {
 public:
 	QuartetScoreComputer(Tree const &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput,
-			bool enforceSmallMem, bool useStxxlFlag);
+			bool enforceSmallMem);
 	std::vector<double> getLQICScores();
 	std::vector<double> getQPICScores();
 	std::vector<double> getEQPICScores();
@@ -625,7 +625,7 @@ inline size_t getTotalSystemMemory() {
  */
 template<typename CINT>
 QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std::string &evalTreesPath, size_t m,
-		bool verboseOutput, bool enforeSmallMem, bool useStxxl) {
+		bool verboseOutput, bool enforeSmallMem) {
 	referenceTree = refTree;
 	rootIdx = referenceTree.root_node().index();
 
@@ -666,10 +666,10 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 
 	if (enforeSmallMem || memoryLookupFast > 0.9 * estimatedMemory) {
 		std::cout << "Using memory-efficient Lookup table\n";
-		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, true, useStxxl);
+		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, true);
 	} else {
 		std::cout << "Using runtime-efficient Lookup table\n";
-		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, false, useStxxl);
+		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, false);
 	}
 
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();

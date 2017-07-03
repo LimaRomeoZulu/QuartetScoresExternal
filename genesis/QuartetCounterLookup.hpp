@@ -50,20 +50,20 @@ struct my_comparator
 template<typename CINT>
 class QuartetCounterLookup {
 public:
-	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem, bool useStxxlFlag);
+	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem);
 	~QuartetCounterLookup() = default;
 	std::tuple<CINT, CINT, CINT> countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 	using Sorter = stxxl::sorter<size_t, my_comparator<size_t> >;
 private:
 	void countQuartets(const std::string &evalTreesPath, size_t m,
-			const std::unordered_map<std::string, size_t> &taxonToReferenceID);
+			const std::unordered_map<std::string, size_t> &taxonToReferenceID, Sorter &quartetSorter);
 	void updateQuartets(const Tree &tree, size_t nodeIdx, const std::vector<int> &eulerTourLeaves,
-			const std::vector<int> &linkToEulerLeafIndex);
+			const std::vector<int> &linkToEulerLeafIndex, Sorter &quartetSorter);
 	void updateQuartetsThreeLinks(size_t link1, size_t link2, size_t link3, const Tree &tree,
-			const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex);
+			const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, Sorter &quartetSorter);
 	void updateQuartetsThreeClades(size_t startLeafIndexS1, size_t endLeafIndexS1, size_t startLeafIndexS2,
 			size_t endLeafIndexS2, size_t startLeafIndexS3, size_t endLeafIndexS3,
-			const std::vector<int> &eulerTourLeaves);
+			const std::vector<int> &eulerTourLeaves, Sorter &quartetSorter);
 	std::pair<size_t, size_t> subtreeLeafIndices(size_t linkIdx, const Tree &tree,
 			const std::vector<int> &linkToEulerLeafIndex);
 
@@ -78,7 +78,6 @@ private:
 	size_t n_cube; /**> n*n*n */
 	std::vector<size_t> refIdToLookupID;
 	bool savemem; /**> trade speed for less memory or not */
-	bool useStxxl;
 };
 
 /**
@@ -94,7 +93,7 @@ private:
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndexS1, size_t endLeafIndexS1,
 		size_t startLeafIndexS2, size_t endLeafIndexS2, size_t startLeafIndexS3, size_t endLeafIndexS3,
-		const std::vector<int> &eulerTourLeaves) {
+		const std::vector<int> &eulerTourLeaves, Sorter &quartetSorter) {
 	size_t aLeafIndex = startLeafIndexS1;
 	size_t bLeafIndex = startLeafIndexS2;
 	size_t cLeafIndex = startLeafIndexS3;
@@ -116,12 +115,10 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 						tuple[tupleIdx]++;
 					} else {
 //#pragma omp atomic
-						if(useStxxl){
-							//quartetSorter.push(COSTXXL(a, a2, b, c));
-						}
-						else{
-							lookupTableFast[CO(a, a2, b, c)]++;
-						}
+
+						quartetSorter.push(COSTXXL(a, a2, b, c));
+						//lookupTableFast[CO(a, a2, b, c)]++;
+						
 					}
 
 					cLeafIndex = (cLeafIndex + 1) % eulerTourLeaves.size();
@@ -167,7 +164,7 @@ std::pair<size_t, size_t> QuartetCounterLookup<CINT>::subtreeLeafIndices(size_t 
  */
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t link2, size_t link3, const Tree &tree,
-		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex) {
+		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, Sorter &quartetSorter) {
 	std::pair<size_t, size_t> subtree1 = subtreeLeafIndices(link1, tree, linkToEulerLeafIndex);
 	std::pair<size_t, size_t> subtree2 = subtreeLeafIndices(link2, tree, linkToEulerLeafIndex);
 	std::pair<size_t, size_t> subtree3 = subtreeLeafIndices(link3, tree, linkToEulerLeafIndex);
@@ -180,11 +177,11 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t l
 	size_t endLeafIndexS3 = subtree3.second % eulerTourLeaves.size();
 
 	updateQuartetsThreeClades(startLeafIndexS1, endLeafIndexS1, startLeafIndexS2, endLeafIndexS2, startLeafIndexS3,
-			endLeafIndexS3, eulerTourLeaves);
+			endLeafIndexS3, eulerTourLeaves, quartetSorter);
 	updateQuartetsThreeClades(startLeafIndexS2, endLeafIndexS2, startLeafIndexS1, endLeafIndexS1, startLeafIndexS3,
-			endLeafIndexS3, eulerTourLeaves);
+			endLeafIndexS3, eulerTourLeaves, quartetSorter);
 	updateQuartetsThreeClades(startLeafIndexS3, endLeafIndexS3, startLeafIndexS1, endLeafIndexS1, startLeafIndexS2,
-			endLeafIndexS2, eulerTourLeaves);
+			endLeafIndexS2, eulerTourLeaves, quartetSorter);
 }
 
 /**
@@ -199,7 +196,7 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t l
  */
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartets(const Tree &tree, size_t nodeIdx,
-		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex) {
+		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, Sorter &quartetSorter) {
 	// get taxa from subtree clades at nodeIdx
 	std::vector<size_t> subtreeLinkIndices;
 	const TreeLink* actLinkPtr = &tree.node_at(nodeIdx).link();
@@ -215,7 +212,7 @@ void QuartetCounterLookup<CINT>::updateQuartets(const Tree &tree, size_t nodeIdx
 				size_t link1 = subtreeLinkIndices[i];
 				size_t link2 = subtreeLinkIndices[j];
 				size_t link3 = subtreeLinkIndices[k];
-				updateQuartetsThreeLinks(link1, link2, link3, tree, eulerTourLeaves, linkToEulerLeafIndex);
+				updateQuartetsThreeLinks(link1, link2, link3, tree, eulerTourLeaves, linkToEulerLeafIndex, quartetSorter);
 			}
 		}
 	}
@@ -229,7 +226,7 @@ void QuartetCounterLookup<CINT>::updateQuartets(const Tree &tree, size_t nodeIdx
  */
 template<typename CINT>
 void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath, size_t m,
-		const std::unordered_map<std::string, size_t> &taxonToReferenceID) {
+		const std::unordered_map<std::string, size_t> &taxonToReferenceID, Sorter &quartetSorter) {
 	unsigned int progress = 1;
 	float onePercent = (float) m / 100;
 
@@ -257,7 +254,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 #pragma omp parallel for schedule(dynamic)
 		for (size_t j = 0; j < nEval; ++j) {
 			if (!tree.node_at(j).is_leaf()) {
-				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex);
+				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, quartetSorter);
 			}
 		}
 
@@ -269,6 +266,8 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		++itTree;
 		++i;
 	}
+	
+	reduceSorter(quartetSorter);
 }
 
 /**
@@ -278,15 +277,13 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
  */
 template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
-		bool savemem, bool useStxxlFlag) :
+		bool savemem) :
 		savemem(savemem) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	n = 0;
-	useStxxl = useStxxlFlag;
-	if(useStxxl){
-			Sorter quartetSorter(my_comparator<size_t>(), 100*1024*1024);
-	}
+	Sorter quartetSorter(my_comparator<size_t>(), 100*1024*1024);
+
 	for (auto it : eulertour(refTree)) {
 		if (it.node().is_leaf()) {
 			taxonToReferenceID[it.node().data<DefaultNodeData>().name] = it.node().index();
@@ -300,9 +297,9 @@ QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std:
 	if (savemem) {
 		lookupTable.init(n);
 	} else {
-		lookupTableFast.resize(n * n * n * n);
+		lookupTableFast.resize(pow(2,26));
 	}
-	countQuartets(evalTreesPath, m, taxonToReferenceID);
+	countQuartets(evalTreesPath, m, taxonToReferenceID, quartetSorter);
 	if (savemem) {
 		std::cout << "lookup table size in bytes: " << lookupTable.size() << "\n";
 	} else {
@@ -323,8 +320,8 @@ CINT QuartetCounterLookup<CINT>::lookupQuartetCount(size_t aIdx, size_t bIdx, si
 	bIdx = refIdToLookupID[bIdx];
 	cIdx = refIdToLookupID[cIdx];
 	dIdx = refIdToLookupID[dIdx];
-	return lookupTableFast[CO(aIdx, bIdx, cIdx, dIdx)] + lookupTableFast[CO(aIdx, bIdx, dIdx, cIdx)]
-			+ lookupTableFast[CO(bIdx, aIdx, cIdx, dIdx)] + lookupTableFast[CO(bIdx, aIdx, dIdx, cIdx)];
+	return lookupTableFast[COSTXXL(aIdx, bIdx, cIdx, dIdx)] + lookupTableFast[COSTXXL(aIdx, bIdx, dIdx, cIdx)]
+			+ lookupTableFast[COSTXXL(bIdx, aIdx, cIdx, dIdx)] + lookupTableFast[COSTXXL(bIdx, aIdx, dIdx, cIdx)];
 }
 
 /**
@@ -368,7 +365,7 @@ void QuartetCounterLookup<CINT>::reduceSorter(Sorter &quartetSorter) {
 			counter++;
 		}
 		else{
-			lookupTable[tmp] = lookupTable[tmp] + counter;
+			lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
 			//std::cout << tmp << " Anzahl: " << counter << "\n";
 			counter = 1;
 		}
