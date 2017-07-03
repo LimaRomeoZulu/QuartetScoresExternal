@@ -21,7 +21,7 @@ using namespace std;
 // 11 was choosen to ecode 1600 different taxa log1600 = 10,6 -> 11 bits needed to represent this alphabet
 //[---11 bits---][---11 bits---][---11 bits---][---11 bits---][---18 bits---][---2 bits---]
 //[------a------][------b------][------c------][------d------][----space----][---order----]
-#define COSTXXL(a,b,c,d) (a<<18)|(b<<12)|(c<<6)|(d)
+#define COSTXXL(a,b,c,d) (a<<26)|(b<<18)|(c<<10)|(d<<2)
 #define CO(a,b,c,d) (a) * n_cube + (b) * n_square + (c) * n + (d)
 
 template <typename T>
@@ -70,8 +70,7 @@ private:
 	CINT lookupQuartetCount(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 	void reduceSorter(Sorter &quartetSorter);
 
-	stxxl::VECTOR_GENERATOR<size_t>::result vector; /**> larger O(n^4) lookup table storing the count of each quartet topology */
-	vector lookupTableFast;
+	stxxl::VECTOR_GENERATOR<size_t>::result lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
 	QuartetLookupTable<CINT> lookupTable; /**> smaller O(n^4) lookup table storing the count of each quartet topology */
 
 	size_t n; /**> number of taxa in the reference tree */
@@ -257,18 +256,22 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			if (!tree.node_at(j).is_leaf()) {
 				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, quartetSorter);
 			}
+		if(j%100 ==0){
+			reduceSorter(quartetSorter);
+		}
 		}
 
 		if (i > progress * onePercent) {
 			std::cout << "Counting quartets... " << progress << "%" << std::endl;
 			progress++;
+		
 		}
 
 		++itTree;
 		++i;
 	}
 	
-	reduceSorter(quartetSorter);
+	//reduceSorter(quartetSorter);
 }
 
 /**
@@ -283,7 +286,7 @@ QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std:
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	n = 0;
-	Sorter quartetSorter(my_comparator<size_t>(), 100*1024*1024);
+	Sorter quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<20);
 
 	for (auto it : eulertour(refTree)) {
 		if (it.node().is_leaf()) {
@@ -295,15 +298,15 @@ QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std:
 	n_square = n * n;
 	n_cube = n_square * n;
 	// initialize the lookup table.
-	// if (savemem) {
-	// 	lookupTable.init(n);
-	// } else {
-	// 	lookupTableFast.resize(pow(2,26));
-	// }
-	for (int i = 0; i < pow(2,64); i++)
-	{
-	 lookupTableFast.push_back(0);
-	}
+	 if (savemem) {
+	 	lookupTable.init(n);
+	 } else {
+	 	lookupTableFast.resize(pow(2,34));
+	 }
+	//for (int i = 0; i < pow(2,40); i++)
+	//{
+	// lookupTableFast.push_back(0);
+	//}
 	
 	countQuartets(evalTreesPath, m, taxonToReferenceID, quartetSorter);
 	if (savemem) {
@@ -372,7 +375,7 @@ void QuartetCounterLookup<CINT>::reduceSorter(Sorter &quartetSorter) {
 		}
 		else{
 			lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
-			std::cout << tmp << " Anzahl: " << counter << "\n";
+			//std::cout << tmp << " Anzahl: " << counter << "\n";
 			counter = 1;
 		}
     }
