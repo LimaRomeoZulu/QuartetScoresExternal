@@ -366,7 +366,7 @@ void QuartetCounterLookup<CINT>::reduceSorter(Sorter &quartetSorter) {
 		}
 		else{
 			lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
-			//std::cout << tmp << " Anzahl: " << counter << "\n";
+			std::cout << tmp << " Anzahl: " << counter << "\n";
 			counter = 1;
 		}
     }
