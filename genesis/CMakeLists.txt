@@ -25,7 +25,7 @@
 
 # Require the minimum version of any system that we test on - which is the version used by Travis.
 # Thus, we can be sure that this works (as long as they don't change it...).
-cmake_minimum_required (VERSION 2.8.7 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.0 FATAL_ERROR)
 message (STATUS "CMake version ${CMAKE_VERSION}")
 
 set (CMAKE_DISABLE_IN_SOURCE_BUILD ON)
@@ -46,7 +46,7 @@ endif()
 #   Project Definition and Requirements
 # --------------------------------------------------------------------------------------------------
 
-project ( genesis CXX C )
+project ( genesis CXX C)
 
 # set (genesis_VERSION_MAJOR 0)
 # set (genesis_VERSION_MINOR 1)
@@ -62,12 +62,12 @@ message (STATUS "C compiler  : ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION
 option (BUILD_SHARED_LIB    "Build shared library" ON)
 option (BUILD_STATIC_LIB    "Build static library" OFF)
 
-option (BUILD_APPLICATIONS  "Build applications"   ON)
+option (BUILD_APPLICATIONS  "Build applications"   OFF)
 option (BUILD_PYTHON_MODULE "Build python module"  OFF)
 option (BUILD_TESTS         "Build test suites"    OFF)
 
-option (USE_THREADS         "Use a threading library (mainly, pthreads)"      ON)
-option (USE_OPENMP          "Use OpenMP if available"                         ON)
+option (USE_THREADS         "Use a threading library (mainly, pthreads)"      OFF)
+option (USE_OPENMP          "Use OpenMP if available"                         OFF)
 
 # Define unity build option with list of valid values.
 set( UNITY_BUILD FULL CACHE STRING "Build modules monolithically - trading memory for speed." )
@@ -83,7 +83,7 @@ endif()
 #   Build Type
 # --------------------------------------------------------------------------------------------------
 
-set (CMAKE_BUILD_TYPE RELEASE)
+set (CMAKE_BUILD_TYPE DEBUG)
 
 # Using the environment variable `GENESIS_DEBUG`, it is possible to change from
 # release mode (default) to debug mode. This is useful for developers.
@@ -93,7 +93,7 @@ if( $ENV{GENESIS_DEBUG} )
     set (CMAKE_BUILD_TYPE DEBUG)
 
     # set (CMAKE_VERBOSE_MAKEFILE ON)
-    SET( BUILD_TESTS    ON )
+    SET( BUILD_TESTS    OFF )
     SET( UNITY_BUILD OFF )
 
 endif()
@@ -113,8 +113,11 @@ set (CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -std=c++11 ${WARN_FLAGS}")
 set (CMAKE_CXX_FLAGS_DEBUG   "-O2 -g -ggdb3 -DDEBUG -D_GLIBCXX_DEBUG")
 set (CMAKE_CXX_FLAGS_RELEASE "-O2       -DNDEBUG")
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Misc options
-# STDCC   = clang++
+# STDCC = clang++
 # MPICC   = mpic++
 # mpi: CCFLAGS += -DUSE_MPI
 # LDFLAGS = -lm $(THREADS)
@@ -131,75 +134,6 @@ if( IS_BIG_ENDIAN )
 endif()
 
 # --------------------------------------------------------------------------------------------------
-#   Threads and OpenMP
-# --------------------------------------------------------------------------------------------------
-
-# We check whether to use threads and OpenMP here,
-# so that all binaries are compiled with the same settings.
-
-IF(USE_THREADS)
-    message (STATUS "Looking for Threads")
-    set (CMAKE_THREAD_PREFER_PTHREAD ON)
-    set (THREADS_PREFER_PTHREAD_FLAG ON)
-    find_package (Threads)
-ENDIF()
-
-if(THREADS_FOUND)
-    message( STATUS "Found Threads: ${CMAKE_THREAD_LIBS_INIT}" )
-    message (STATUS "${ColorGreen}Using Threads${ColorEnd}")
-    add_definitions( "-DGENESIS_PTHREADS" )
-elseif(USE_THREADS)
-    message (STATUS "Threads not found")
-endif()
-
-IF(USE_OPENMP)
-    message (STATUS "Looking for OpenMP")
-
-    # CMake versions before 3.5 do not properly support Clang OpenMP flags.
-    # And even with more recent CMake versions, it is not fully working.
-    # In order to still enable OpenMP, we use our own patch of the find module.
-    # See ./tools/cmake/FindOpenMP.cmake for the modifications we made to support Clang.
-    if( "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
-        set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/tools/cmake" )
-        find_package( OpenMP_patch )
-
-        # If our patch does not work, try the standard one, just in case.
-        if( NOT OPENMP_FOUND )
-            find_package( OpenMP )
-        endif()
-
-    else()
-        # In all other cases, use the normal find module.
-        find_package( OpenMP )
-    endif()
-ENDIF()
-
-if(OPENMP_FOUND)
-
-    message( STATUS "Found OpenMP: ${OpenMP_CXX_FLAGS}" )
-    message (STATUS "${ColorGreen}Using OpenMP${ColorEnd}")
-    add_definitions( "-DGENESIS_OPENMP" )
-
-    set( CMAKE_C_FLAGS          "${CMAKE_C_FLAGS}          ${OpenMP_C_FLAGS}")
-    set( CMAKE_CXX_FLAGS        "${CMAKE_CXX_FLAGS}        ${OpenMP_CXX_FLAGS}" )
-    set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}" )
-
-elseif(
-    USE_OPENMP
-    AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"
-    AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 3.8
-)
-    # Special warning for users that have a Clang version that supports OpenMP, but where
-    # the find module still did not succeed.
-    message (STATUS "OpenMP not found")
-    message (STATUS "${ColorYellow}You are trying to compile with Clang and OpenMp. "
-    "This does not seem to work right now. Try installing 'libiomp-dev' first.${ColorEnd}")
-elseif(USE_OPENMP)
-    message (STATUS "OpenMP not found")
-endif()
-
-
-# --------------------------------------------------------------------------------------------------
 #   stxxl library
 # --------------------------------------------------------------------------------------------------
 # disallow in-source builds
@@ -209,16 +143,22 @@ endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 
 # include the STXXL library
 add_subdirectory(lib/stxxl/stxxl)
+add_subdirectory(lib/genesis)
 
 # apply STXXL CXXFLAGS to our configuration
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
 
 # add STXXL includes path
 include_directories(${STXXL_INCLUDE_DIRS})
+include_directories( ${PROJECT_SOURCE_DIR}/lib/genesis)
 
 # build a program and link it with STXXL.
-add_executable(project main.cpp)
-target_link_libraries(project ${STXXL_LIBRARIES})
+add_executable(QuartetScore QuartetScores.cpp)
+target_link_libraries(QuartetScore ${STXXL_LIBRARIES})
+target_link_libraries(QuartetScore genesis_lib_static)
+
+set_property(TARGET QuartetScore PROPERTY CXX_STANDARD 11)
+set_target_properties(QuartetScore PROPERTIES INSTALL_RPATH ${PROJECT_SOURCE_DIR}/build)
 
 # --------------------------------------------------------------------------------------------------
 #   Unity Build
@@ -317,28 +257,4 @@ function( ASSEMBLE_MONOLITH input_directory use_modules name resulting_source_fi
     ENDIF()
 endfunction()
 
-# --------------------------------------------------------------------------------------------------
-#   Sub-Scripts
-# --------------------------------------------------------------------------------------------------
-
-# Using the build options from above, include the cmake sub-scripts
-# that the user wants to compile.
-
-if (BUILD_SHARED_LIB OR BUILD_STATIC_LIB)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/lib/genesis)
-endif()
-
-if (BUILD_APPLICATIONS)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/apps)
-endif()
-
-if (BUILD_PYTHON_MODULE)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/python)
-endif()
-
-if (BUILD_TESTS)
-    # Need to enable testing here, otherwise `./build/make test` will not work.
-    enable_testing()
-
-    add_subdirectory(${PROJECT_SOURCE_DIR}/test)
-endif()
+#----------------------------------------------------------------------------------------
