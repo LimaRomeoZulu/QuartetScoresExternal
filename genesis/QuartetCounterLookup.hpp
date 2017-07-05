@@ -70,7 +70,7 @@ private:
 	CINT lookupQuartetCount(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 	void reduceSorter(Sorter &quartetSorter);
 
-	stxxl::VECTOR_GENERATOR<size_t>::result lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
+	std::vector<CINT> lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
 	QuartetLookupTable<CINT> lookupTable; /**> smaller O(n^4) lookup table storing the count of each quartet topology */
 
 	size_t n; /**> number of taxa in the reference tree */
@@ -286,7 +286,7 @@ QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std:
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	n = 0;
-	Sorter quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<20);
+	Sorter quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<30);
 
 	for (auto it : eulertour(refTree)) {
 		if (it.node().is_leaf()) {
